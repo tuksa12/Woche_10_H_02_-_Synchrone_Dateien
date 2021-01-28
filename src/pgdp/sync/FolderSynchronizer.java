@@ -22,10 +22,12 @@ public class FolderSynchronizer {
 
 	public Map<String, Instant> scan() throws IOException {
 		Map<String, Instant > result = new HashMap<>();
-		Files.walk(folder)//Testar se isso funciona
+		Files.walk(folder)
 				.forEach(file -> {
 					try {
-						result.put(FileSyncUtil.pathToRelativeUri(folder,file),Files.getLastModifiedTime(file).toInstant());
+						if(!FileSyncUtil.pathToRelativeUri(folder,file).equals("")){
+							result.put(FileSyncUtil.pathToRelativeUri(folder,file),Files.getLastModifiedTime(file).toInstant());
+						}
 					} catch (IOException ignored) {
 					}
 				});
@@ -66,7 +68,7 @@ public class FolderSynchronizer {
 	}
 	public FileContent getFileContent(String fileInFolderRelativeUri) throws IOException {
 		List<FileContent> result = Files.walk(folder)
-				.filter(file -> file.toUri().equals(fileInFolderRelativeUri))
+				.filter(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri))
 				.map(file -> {
 					try {
 						 List<String> content = Files.readAllLines(file);
