@@ -22,8 +22,7 @@ public class FolderSynchronizer {
 
 	public Map<String, Instant> scan() throws IOException {
 		Map<String, Instant > result = new HashMap<>();
-		Files.walk(folder)
-				.map(Path::getFileName)//Testar se isso funciona
+		Files.walk(folder)//Testar se isso funciona
 				.forEach(file -> {
 					try {
 						result.put(FileSyncUtil.pathToRelativeUri(folder,file),Files.getLastModifiedTime(file).toInstant());
@@ -65,19 +64,34 @@ public class FolderSynchronizer {
 //				});
 		return true;
 	}
-
 	public FileContent getFileContent(String fileInFolderRelativeUri) throws IOException {
-		Path path = FileSyncUtil.relativeUriToPath(folder,fileInFolderRelativeUri);
-		List<String> content = new ArrayList<>();
-		Files.walk(folder)
-			.forEach(file -> {
-					content.add(file.toFile().toString());//Antes estava file.getFileName().toString(),testar se funciona
-			});
-		Instant instant = null;
-		try{
-			instant = Files.getLastModifiedTime(path).toInstant();
-		} catch (IOException ignored) {
-		}
-		return new FileContent(instant,content);
+		List<FileContent> result = Files.walk(folder)
+				.filter(file -> file.toUri().equals(fileInFolderRelativeUri))
+				.map(file -> {
+					try {
+						 List<String> content = Files.readAllLines(file);
+						 Instant lastModifiedDate = Files.getLastModifiedTime(file).toInstant();
+						 return new FileContent(lastModifiedDate,content);
+					} catch (IOException e) {
+						return new FileContent(null,null);
+					}
+				})
+				.collect(Collectors.toList());
+		return result.get(0);
 	}
+
+//	public FileContent getFileContent(String fileInFolderRelativeUri) throws IOException {
+//		Path path = FileSyncUtil.relativeUriToPath(folder,fileInFolderRelativeUri);
+//		List<String> content = new ArrayList<>();
+//		Files.walk(folder)
+//			.forEach(file -> {
+//					content.add(file.toFile().toString());//Antes estava file.getFileName().toString(),testar se funciona
+//			});
+//		Instant instant = null;
+//		try{
+//			instant = Files.getLastModifiedTime(path).toInstant();
+//		} catch (IOException ignored) {
+//		}
+//		return new FileContent(instant,content);
+//	}
 }
