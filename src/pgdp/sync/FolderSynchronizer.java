@@ -23,6 +23,7 @@ public class FolderSynchronizer {
 	public Map<String, Instant> scan() throws IOException {
 		Map<String, Instant > result = new HashMap<>();
 		Files.walk(folder)
+				.map(Path::getFileName)//Testar se isso funciona
 				.forEach(file -> {
 					try {
 						result.put(FileSyncUtil.pathToRelativeUri(folder,file),Files.getLastModifiedTime(file).toInstant());
@@ -33,12 +34,23 @@ public class FolderSynchronizer {
 	}
 
 	public boolean updateIfNewer(String fileInFolderRelativeUri, FileContent fileContent) throws IOException {
+		Path filePath = FileSyncUtil.relativeUriToPath(folder,fileInFolderRelativeUri);
 		boolean contains = Files.walk(folder)
-				.anyMatch(file -> file.getFileName().toString().equals(fileInFolderRelativeUri));
+				.anyMatch(file -> file.getFileName().equals(filePath));
 		if (!contains){
-			Path path = FileSyncUtil.relativeUriToPath(Files.createDirectories(folder), fileInFolderRelativeUri);
+			//Files.createDirectories(folder,Files.getAttribute(filePath,fileContent.getLines().toString()));
 		} else {
-			Files.walk(folder);
+			Files.walk(folder)
+			.filter(file -> file.getFileName().equals(filePath))
+			.map(file -> {
+				try {
+					if(Files.getLastModifiedTime(file).toInstant().isBefore(fileContent.getLastModifiedTime())){
+						Files.setAttribute(file,fileContent.getLines().toString(),fileContent.getLastModifiedTime());
+						Files.setLastModifiedTime(file, FileTime.from(fileContent.getLastModifiedTime()));
+					}
+				} catch (IOException e) {
+				}
+			return true;});
 		}
 //		Files.walk(folder)
 //				.filter(file -> file.equals(path))
@@ -51,7 +63,7 @@ public class FolderSynchronizer {
 //					} catch (IOException e) {
 //					}
 //				});
-		return false;
+		return true;
 	}
 
 	public FileContent getFileContent(String fileInFolderRelativeUri) throws IOException {
@@ -59,7 +71,7 @@ public class FolderSynchronizer {
 		List<String> content = new ArrayList<>();
 		Files.walk(folder)
 			.forEach(file -> {
-					content.add(file.getFileName().toString());
+					content.add(file.toFile().toString());//Antes estava file.getFileName().toString(),testar se funciona
 			});
 		Instant instant = null;
 		try{
