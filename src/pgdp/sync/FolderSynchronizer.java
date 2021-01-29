@@ -1,8 +1,9 @@
 package pgdp.sync;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileTime;
@@ -25,7 +26,7 @@ public class FolderSynchronizer {
 		Files.walk(folder)
 				.forEach(file -> {
 					try {
-						if(!FileSyncUtil.pathToRelativeUri(folder,file).equals("")){
+						if(Files.isRegularFile(file)){//!FileSyncUtil.pathToRelativeUri(folder,file).equals("")){//Deve estar certo, so falta dar push e testar
 							result.put(FileSyncUtil.pathToRelativeUri(folder,file),Files.getLastModifiedTime(file).toInstant());
 						}
 					} catch (IOException ignored) {
@@ -35,37 +36,60 @@ public class FolderSynchronizer {
 	}
 
 	public boolean updateIfNewer(String fileInFolderRelativeUri, FileContent fileContent) throws IOException {
-		Path filePath = FileSyncUtil.relativeUriToPath(folder,fileInFolderRelativeUri);
-		boolean contains = Files.walk(folder)
-				.anyMatch(file -> file.getFileName().equals(filePath));
-		if (!contains){
-			//Files.createDirectories(folder,Files.getAttribute(filePath,fileContent.getLines().toString()));
-		} else {
-			Files.walk(folder)
-			.filter(file -> file.getFileName().equals(filePath))
-			.map(file -> {
-				try {
-					if(Files.getLastModifiedTime(file).toInstant().isBefore(fileContent.getLastModifiedTime())){
-						Files.setAttribute(file,fileContent.getLines().toString(),fileContent.getLastModifiedTime());
-						Files.setLastModifiedTime(file, FileTime.from(fileContent.getLastModifiedTime()));
-					}
-				} catch (IOException e) {
-				}
-			return true;});
+		boolean containsFile = Files.walk(folder)
+				.anyMatch(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri));
+
+		if(containsFile){
+			Path file = FileSyncUtil.relativeUriToPath(folder, fileInFolderRelativeUri);
+			if (Files.getLastModifiedTime(file).toInstant().isBefore(fileContent.getLastModifiedTime())){
+					BufferedWriter writer = new BufferedWriter(new FileWriter(file.toString()));
+					writer.write(fileContent.getLines().toString());
+					Files.setLastModifiedTime(file,FileTime.from(fileContent.getLastModifiedTime()));
+			}
+		} else{
+			File newFile = new File(fileInFolderRelativeUri);
+			BufferedWriter writer = new BufferedWriter(new FileWriter(newFile.toPath().toString()));
+			writer.write(fileContent.getLines().toString());
+			Files.setLastModifiedTime(newFile.toPath(),FileTime.from(fileContent.getLastModifiedTime()));
 		}
-//		Files.walk(folder)
-//				.filter(file -> file.equals(path))
-//				.forEach(file -> {
-//					try {
-//						if(Files.getLastModifiedTime(file).toInstant().isBefore(fileContent.getLastModifiedTime())){
-//							Files.cr
-//							Files.setLastModifiedTime(file, FileTime.from(fileContent.getLastModifiedTime()));
-//						}
-//					} catch (IOException e) {
-//					}
-//				});
-		return true;
+
+		return Files.walk(folder)
+				.anyMatch(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri));
 	}
+
+
+//	public boolean updateIfNewer(String fileInFolderRelativeUri, FileContent fileContent) throws IOException {
+//		Path filePath = FileSyncUtil.relativeUriToPath(folder,fileInFolderRelativeUri);
+//		boolean contains = Files.walk(folder)
+//				.anyMatch(file -> file.getFileName().equals(filePath));
+//		if (!contains){
+//			//Files.createDirectories(folder,Files.getAttribute(filePath,fileContent.getLines().toString()));
+//		} else {
+//			Files.walk(folder)
+//			.filter(file -> file.getFileName().equals(filePath))
+//			.map(file -> {
+//				try {
+//					if(Files.getLastModifiedTime(file).toInstant().isBefore(fileContent.getLastModifiedTime())){
+//						Files.setAttribute(file,fileContent.getLines().toString(),fileContent.getLastModifiedTime());
+//						Files.setLastModifiedTime(file, FileTime.from(fileContent.getLastModifiedTime()));
+//					}
+//				} catch (IOException e) {
+//				}
+//			return true;});
+//		}
+////		Files.walk(folder)
+////				.filter(file -> file.equals(path))
+////				.forEach(file -> {
+////					try {
+////						if(Files.getLastModifiedTime(file).toInstant().isBefore(fileContent.getLastModifiedTime())){
+////							Files.cr
+////							Files.setLastModifiedTime(file, FileTime.from(fileContent.getLastModifiedTime()));
+////						}
+////					} catch (IOException e) {
+////					}
+////				});
+//		return true;
+//	}
 	public FileContent getFileContent(String fileInFolderRelativeUri) throws IOException {
 		List<FileContent> result = Files.walk(folder)
 				.filter(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri))
