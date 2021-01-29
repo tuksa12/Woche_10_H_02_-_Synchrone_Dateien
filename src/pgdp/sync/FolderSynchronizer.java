@@ -26,7 +26,7 @@ public class FolderSynchronizer {
 		Files.walk(folder)
 				.forEach(file -> {
 					try {
-						if(Files.isRegularFile(file)){//!FileSyncUtil.pathToRelativeUri(folder,file).equals("")){//Deve estar certo, so falta dar push e testar
+						if(Files.isRegularFile(file)){
 							result.put(FileSyncUtil.pathToRelativeUri(folder,file),Files.getLastModifiedTime(file).toInstant());
 						}
 					} catch (IOException ignored) {
@@ -36,6 +36,9 @@ public class FolderSynchronizer {
 	}
 
 	public boolean updateIfNewer(String fileInFolderRelativeUri, FileContent fileContent) throws IOException {
+		if(fileInFolderRelativeUri.equals("")){
+			return false;
+		}
 		boolean containsFile = Files.walk(folder)
 				.anyMatch(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri));
 
@@ -99,7 +102,7 @@ public class FolderSynchronizer {
 						 Instant lastModifiedDate = Files.getLastModifiedTime(file).toInstant();
 						 return new FileContent(lastModifiedDate,content);
 					} catch (IOException e) {
-						return new FileContent(null,null);
+						return new FileContent(null,null);//Mudar isso
 					}
 				})
 				.collect(Collectors.toList());
