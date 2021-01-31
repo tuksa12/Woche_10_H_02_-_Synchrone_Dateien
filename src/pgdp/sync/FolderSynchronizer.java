@@ -39,6 +39,10 @@ public class FolderSynchronizer {
 		if(fileInFolderRelativeUri.equals("") || fileContent == null){
 			return false;
 		}
+		if(!Files.exists(folder)){
+			Files.createDirectories(folder);
+		}
+
 		boolean containsFile = Files.walk(folder)
 				.anyMatch(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri));
 
