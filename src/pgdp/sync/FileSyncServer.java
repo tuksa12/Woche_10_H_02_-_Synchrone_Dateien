@@ -38,6 +38,7 @@ public class FileSyncServer extends FileSyncParticipant{
             in = new BufferedReader(new InputStreamReader(server.accept().getInputStream(), StandardCharsets.UTF_8));
             // Initialize with auto-flush
             out = new PrintWriter(server.accept().getOutputStream(), true, StandardCharsets.UTF_8);
+            initiate();
             while (true) {
                 executeNextCommand();
             }
@@ -46,35 +47,73 @@ public class FileSyncServer extends FileSyncParticipant{
         }
     }
 
+    private void initiate(){
+        out.println(LIST);
+    }
+
     private void executeNextCommand() throws IOException {
         String command = in.readLine();
         switch (command) {
-            case LIST -> sendFileListToClient();
-            case GET -> sendFileContentToClient();
-            case UPDATE -> updateFileFromClient();
+            case SUCCESS -> getFileListFromClient();
             default -> System.err.print("Unknown command from client: " + command);
         }
     }
 
-    private void sendFileListToClient() {
-        Map<String, Instant> files;
+    private void getFileListFromClient() {
+        ArrayList<String> uri = new ArrayList<>();
+        ArrayList<Instant> lastModifiedTime = new ArrayList<>();
         try {
-            files = folderSynchronizer().scan();
-        } catch (Exception e) {
-            System.err.println("Folder scan failed: " + e);
-            out.println(FAILED);
-            return;
-        }
-        out.println(SUCCESS);
-        out.println(files.size());
-        for (Map.Entry<String, Instant> file : files.entrySet()) {
-            out.println(file.getKey());
-            out.println(file.getValue());
+            Map<String, Instant> filesFromServer = folderSynchronizer().scan();
+            int filesNumber= in.read();
+            for (int i = 0; i < filesNumber; i++) {
+                uri.add(in.readLine());
+                lastModifiedTime.add(Instant.parse(in.readLine()));
+
+            } if(uri.size() > filesFromServer.size()){
+                out.println(GET);
+                for (int i = 0; i < uri.size(); i++) {
+                    if(!filesFromServer.keySet().contains(uri.get(i))){
+                        out.println(uri.get(i));
+                        updateFileFromServer(uri.get(i));
+                    } else if(filesFromServer.get(uri.get(i)).isBefore(lastModifiedTime.get(i))){
+                        out.println(uri.get(i));
+                        updateFileFromServer(uri.get(i));
+                    }
+                }
+            } else if(uri.size() < filesFromServer.size()){
+                List<String> keys = new ArrayList<>(filesFromServer.keySet());
+                out.println(UPDATE);
+                for (int i = 0; i < filesFromServer.size(); i++) {
+                    if(!uri.contains(keys.get(i))){
+                        out.println(keys.get(i));
+                        sendFileContentToClient(keys.get(i));
+                    } else if(filesFromServer.get(uri.get(i)).isAfter(lastModifiedTime.get(i))){
+                        out.println(uri.get(i) + "\n" + uri.get(i) + " wurde auf Server editiert");
+                        sendFileContentToClient(uri.get(i));
+                    }
+                }
+            } else {
+                List<String> keys = new ArrayList<>(filesFromServer.keySet());
+                for (int i = 0; i < filesFromServer.size(); i++) {
+                    if(filesFromServer.get(uri.get(i)).isBefore(lastModifiedTime.get(i))){
+                        out.println(GET);
+                        out.println(uri.get(i));
+                        updateFileFromServer(uri.get(i));
+                    }else if (filesFromServer.get(uri.get(i)).isAfter(lastModifiedTime.get(i))) {
+                        out.println(UPDATE);
+                        out.println(uri.get(i) + "\n" + uri.get(i) + " wurde auf Server editiert");
+                        sendFileContentToClient(uri.get(i));
+                    }
+                }
+            }
+            FileSyncUtil.sleepFiveSeconds();
+            initiate();
+        } catch (IOException e) {
+            System.err.println("Not a valid file number.");
         }
     }
 
-    private void sendFileContentToClient() throws IOException {
-        String file = in.readLine();
+    private void sendFileContentToClient(String file) throws IOException {
         FileContent fileContent;
         try {
             fileContent = folderSynchronizer().getFileContent(file);
@@ -83,13 +122,13 @@ public class FileSyncServer extends FileSyncParticipant{
             out.println(FAILED);
             return;
         }
-        out.println(SUCCESS);
         sendFileContent(fileContent);
     }
 
-    private void updateFileFromClient() throws IOException {
-        String file = in.readLine();
-        receiveAndUpdateFile(file);
+    private void updateFileFromServer(String file) throws IOException {
+        if(in.readLine().equals(SUCCESS)){
+            receiveAndUpdateFile(file);
+        }
     }
 
     void receiveAndUpdateFile(String file) throws IOException {
@@ -101,9 +140,7 @@ public class FileSyncServer extends FileSyncParticipant{
         }
         FileContent fileContent = new FileContent(lastModTime, lines);
         try {
-            boolean updated = folderSynchronizer().updateIfNewer(file, fileContent);
-            if (updated)
-                System.out.println("File " + file + " updated");
+            folderSynchronizer().updateIfNewer(file, fileContent);
         } catch (Exception e) {
             System.err.println("File update of " + file + " failed: " + e);
         }

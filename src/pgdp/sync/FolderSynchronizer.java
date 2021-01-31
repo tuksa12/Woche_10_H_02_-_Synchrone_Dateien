@@ -36,7 +36,7 @@ public class FolderSynchronizer {
 	}
 
 	public boolean updateIfNewer(String fileInFolderRelativeUri, FileContent fileContent) throws IOException {
-		if(fileInFolderRelativeUri.equals("")){
+		if(fileInFolderRelativeUri.equals("") || fileContent == null){
 			return false;
 		}
 		boolean containsFile = Files.walk(folder)
