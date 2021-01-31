@@ -39,9 +39,9 @@ public class FolderSynchronizer {
 		if(fileInFolderRelativeUri.equals("") || fileContent == null){
 			return false;
 		}
-		if(!Files.exists(folder)){
-			Files.createDirectories(folder);
-		}
+//		if(!Files.exists(folder)){
+//			 Path k = Files.createDirectories(folder);
+//		}
 
 		boolean containsFile = Files.walk(folder)
 				.anyMatch(file -> FileSyncUtil.pathToRelativeUri(folder,file).equals(fileInFolderRelativeUri));
@@ -54,10 +54,10 @@ public class FolderSynchronizer {
 					Files.setLastModifiedTime(file,FileTime.from(fileContent.getLastModifiedTime()));
 			}
 		} else{
-			File newFile = new File(fileInFolderRelativeUri);
-			BufferedWriter writer = new BufferedWriter(new FileWriter(newFile.toPath().toString()));
+			Path newFile = Files.createDirectories(folder);
+			BufferedWriter writer = new BufferedWriter(new FileWriter(newFile.toString()));
 			writer.write(fileContent.getLines().toString());
-			Files.setLastModifiedTime(newFile.toPath(),FileTime.from(fileContent.getLastModifiedTime()));
+			Files.setLastModifiedTime(newFile,FileTime.from(fileContent.getLastModifiedTime()));
 		}
 
 		return Files.walk(folder)
